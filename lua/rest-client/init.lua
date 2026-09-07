@@ -2,170 +2,151 @@ local M = {}
 
 -- Custom safe function to pretty print raw JSON string with correct indentation
 local function pretty_format_json(json_str)
-  local success, decoded = pcall(vim.json.decode, json_str)
-  if not success then return json_str end
-  
-  local raw_inspect = vim.inspect(decoded)
-  local formatted_lines = {}
-  
-  for line in string.gmatch(raw_inspect, "[^\r\n]+") do
-    line = line:gsub("=", ":")
-    table.insert(formatted_lines, line)
-  end
-  
-  return formatted_lines
+	local success, decoded = pcall(vim.json.decode, json_str)
+	if not success then
+		return json_str
+	end
+
+	local raw_inspect = vim.inspect(decoded)
+	local formatted_lines = {}
+
+	for line in string.gmatch(raw_inspect, "[^\r\n]+") do
+		line = line:gsub("=", ":")
+		table.insert(formatted_lines, line)
+	end
+
+	return formatted_lines
 end
 
 -- Safely render the HTTP response in a new vertical split window
 local function display_response(body, status)
-  local bufnr = vim.api.nvim_create_buf(false, true)
-  vim.bo[bufnr].filetype = "json"
-  
-  local lines = {
-    "// Status: " .. tostring(status or "200 OK (Inferred)"),
-    "// ------------------------",
-  }
-  
-  local formatted = pretty_format_json(body)
-  if type(formatted) == "table" then
-    for _, line in ipairs(formatted) do
-      table.insert(lines, line)
-    end
-  else
-    for line in string.gmatch(body, "[^\r\n]+") do
-      table.insert(lines, line)
-    end
-  end
+	local bufnr = vim.api.nvim_create_buf(false, true)
+	vim.bo[bufnr].filetype = "json"
 
-  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-  vim.cmd("vsplit")
-  vim.api.nvim_win_set_buf(0, bufnr)
+	local lines = {
+		"// Status: " .. tostring(status),
+		"// ------------------------",
+	}
+
+	local formatted = pretty_format_json(body)
+	if type(formatted) == "table" then
+		for _, line in ipairs(formatted) do
+			table.insert(lines, line)
+		end
+	else
+		for line in string.gmatch(body, "[^\r\n]+") do
+			table.insert(lines, line)
+		end
+	end
+
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+	vim.cmd("vsplit")
+	vim.api.nvim_win_set_buf(0, bufnr)
 end
 
 -- Main function triggered by the user to parse and run the request under cursor
 function M.run_request()
-  local current_line = vim.api.nvim_get_current_line()
-  local cursor_pos = vim.api.nvim_win_get_cursor(0)
-  local current_row = cursor_pos[1]
+	local current_line = vim.api.nvim_get_current_line()
+	local cursor_pos = vim.api.nvim_win_get_cursor(0)
+	local current_row = cursor_pos[1] -- Fix: Extract row correctly from cursor tuple
 
-  -- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
-  current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
-  current_line = current_line:match("^%s*//%s*(.*)") or current_line
-  current_line = current_line:match("^%s*#%s*(.*)") or current_line
-  current_line = vim.trim(current_line)
+	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
+	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
+	current_line = current_line:match("^%s*//%s*(.*)") or current_line
+	current_line = current_line:match("^%s*#%s*(.*)") or current_line
+	current_line = vim.trim(current_line)
 
-  local method, url
-  local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
-  
-  if potential_method and potential_url then
-    method = potential_method
-    url = potential_url
-  elseif current_line:match("^https?://%S+") then
-    method = "GET"
-    url = current_line:match("^(https?://%S+)")
-  end
+	local method, url
+	local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
 
-  if not method or not url then
-    vim.api.nvim_err_writeln("Error: Current line is not a valid HTTP request.")
-    return
-  end
+	if potential_method and potential_url then
+		method = potential_method
+		url = potential_url
+	elseif current_line:match("^https?://%S+") then
+		method = "GET"
+		url = current_line:match("^(https?://%S+)")
+	end
 
-  method = method:upper()
+	if not method or not url then
+		vim.api.nvim_err_writeln("Error: Current line is not a valid HTTP request.")
+		return
+	end
 
-  -- Parse Headers and Body from lines below the request line
-  local total_lines = vim.api.nvim_buf_line_count(0)
-  local headers = {}
-  local body_lines = {}
-  local is_parsing_body = false
+	method = method:upper()
 
-  -- Scan consecutive lines underneath the request line
-  for i = current_row + 1, total_lines do
-    local lines_get = vim.api.nvim_buf_get_lines(0, i - 1, i, false)
-    local line = lines_get[1] or ""
-    
-    if line:match("^%A+%s+https?://") or line:match("^###") then
-      break
-    end
+	-- Parse Headers and Body from lines below the request line
+	local total_lines = vim.api.nvim_buf_line_count(0)
+	local headers = {}
+	local body_lines = {}
+	local is_parsing_body = false
 
-    if is_parsing_body then
-      table.insert(body_lines, line)
-    else
-      if line == "" then
-        is_parsing_body = true
-      else
-        local h_key, h_val = line:match("^([^:]+):%s*(.*)")
-        if h_key and h_val then
-          headers[vim.trim(h_key)] = vim.trim(h_val)
-        end
-      end
-    end
-  end
+	-- Default common headers
+	headers["User-Agent"] = "Neovim-RestClient/0.12"
 
-  local request_body = nil
-  if #body_lines > 0 then
-    request_body = table.concat(body_lines, "\n")
-    if request_body:match("^%s*{") and not headers["Content-Type"] then
-      headers["Content-Type"] = "application/json"
-    end
-  end
+	-- Scan consecutive lines underneath the request line
+	for i = current_row + 1, total_lines do
+		local lines_get = vim.api.nvim_buf_get_lines(0, i - 1, i, false)
+		local line = lines_get[1] or ""
 
-  print("Sending [" .. method .. "] request to " .. url .. "...")
+		-- Stop parsing if we hit another request block or block delimiter
+		if line:match("^%A+%s+https?://") or line:match("^###") then
+			break
+		end
 
-  -- ROUTING LOGIC: If it's a standard GET without complex requirements, use native API
-  if method == "GET" and not next(headers) then
-    vim.net.request(url, {}, function(err, response)
-      if err then
-        vim.schedule(function() vim.api.nvim_err_writeln("Request failed: " .. tostring(err)) end)
-        return
-      end
-      vim.schedule(function()
-        if response and response.body then
-          display_response(response.body, 200)
-        else
-          vim.api.nvim_err_writeln("Error: Empty response.")
-        end
-      end)
-    end)
-  else
-    -- ADVANCED ROUTING: For POST/PUT/PATCH/DELETE, use robust async vim.system orchestration
-    local cmd = { "curl", "-s", "-X", method, url }
-    
-    -- Append parsed headers dynamically
-    for k, v do
-      table.insert(cmd, "-H")
-      table.insert(cmd, string.format("%s: %s", k, v))
-    end
-    
-    -- Append request payload body if it exists
-    if request_body then
-      table.insert(cmd, "-d")
-      table.insert(cmd, request_body)
-    end
-    
-    -- Append switch to fetch the HTTP response status code natively
-    table.insert(cmd, "-w")
-    table.insert(cmd, "\n%{http_code}")
+		if is_parsing_body then
+			table.insert(body_lines, line)
+		else
+			if line == "" then
+				is_parsing_body = true
+			else
+				local h_key, h_val = line:match("^([^:]+):%s*(.*)")
+				if h_key and h_val then
+					headers[vim.trim(h_key)] = vim.trim(h_val)
+				end
+			end
+		end
+	end
 
-    vim.system(cmd, { text = true }, function(obj)
-      vim.schedule(function()
-        if obj.code ~= 0 then
-          vim.api.nvim_err_writeln("Request failed: " .. (obj.stderr or "Unknown Error"))
-          return
-        end
+	local request_body = nil
+	if #body_lines > 0 then
+		request_body = table.concat(body_lines, "\n")
+		if request_body:match("^%s*{") and not headers["Content-Type"] then
+			headers["Content-Type"] = "application/json"
+		end
+	end
 
-        local output = obj.stdout or ""
-        -- Extract the trailing http_code written via curl -w flag
-        local body, status = output:match("^(.*)\n(%d+)$")
-        if not body then
-          body = output
-          status = "Unknown"
-        end
+	print("Sending [" .. method .. "] request to " .. url .. "...")
 
-        display_response(body, status)
-      end)
-    end)
-  end
+	-- Completion callback handler for the network api
+	local on_response = function(err, response)
+		if err then
+			vim.schedule(function()
+				vim.api.nvim_err_writeln("Request failed: " .. tostring(err))
+			end)
+			return
+		end
+
+		vim.schedule(function()
+			if response and response.body then
+				display_response(response.body, response.status)
+			else
+				vim.api.nvim_err_writeln("Error: Received an empty response from server.")
+			end
+		end)
+	end
+
+	-- Route calls strictly into Neovim 0.12 native API parameter expectations
+	local opts = {
+		headers = headers,
+		body = request_body,
+	}
+
+	if method == "GET" then
+		vim.net.request(url, opts, on_response)
+	else
+		-- Explicitly invoke method overloads using proper layout parameters
+		vim.net.request(method, url, opts, on_response)
+	end
 end
 
 return M
-
