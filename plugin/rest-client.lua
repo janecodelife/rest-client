@@ -3,7 +3,7 @@ vim.api.nvim_create_user_command("RestRun", function()
 	require("rest-client").run_request()
 end, {})
 
--- FIX: Use a direct Lua function execution instead of string command to prevent E499 errors
+-- FIX: Simplified keymap definition to prevent Neovim 0.12 boolean indexing errors
 vim.keymap.set("n", "<leader>r", function()
 	require("rest-client").run_request()
-end, { desc = "Run HTTP request under cursor" })
+end)
