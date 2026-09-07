@@ -3,7 +3,7 @@ vim.api.nvim_create_user_command("RestRun", function()
 	require("rest-client").run_request()
 end, {})
 
--- FIX: Simplified keymap definition to prevent Neovim 0.12 boolean indexing errors
+-- Bind <leader>r shortcut to execute the HTTP client safely
 vim.keymap.set("n", "<leader>r", function()
 	require("rest-client").run_request()
 end)
