@@ -72,9 +72,8 @@ function M.run_request()
 
 	print("Sending [" .. method .. "] request to " .. url .. "...")
 
-	-- FIX: Correct official Neovim 0.12 signature layout:
-	-- vim.net.request(method, url, opts, on_response)
-	vim.net.request(method, url, {}, function(err, response)
+	-- Completion callback handler for the network api
+	local on_response = function(err, response)
 		if err then
 			vim.schedule(function()
 				vim.api.nvim_err_writeln("Request failed: " .. tostring(err))
@@ -90,7 +89,16 @@ function M.run_request()
 				vim.api.nvim_err_writeln("Error: Received an empty response from server.")
 			end
 		end)
-	end)
+	end
+
+	-- Route calls based on method signature criteria for Neovim's API
+	if method == "GET" then
+		-- Standard GET syntax layout: (url, opts, callback)
+		vim.net.request(url, {}, on_response)
+	else
+		-- Method overload layout for POST/PUT/DELETE: (method, url, opts, callback)
+		vim.net.request(method, url, {}, on_response)
+	end
 end
 
 return M
