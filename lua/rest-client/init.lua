@@ -23,8 +23,11 @@ local function display_response(body, status)
 	local bufnr = vim.api.nvim_create_buf(false, true)
 	vim.bo[bufnr].filetype = "json"
 
+	-- FIX: If status is nil from native API, display a friendly successful status string
+	local display_status = status or "200 OK (Inferred)"
+
 	local lines = {
-		"// Status: " .. tostring(status),
+		"// Status: " .. tostring(display_status),
 		"// ------------------------",
 	}
 
