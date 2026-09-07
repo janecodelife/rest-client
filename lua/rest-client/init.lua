@@ -48,7 +48,7 @@ end
 function M.run_request()
 	local current_line = vim.api.nvim_get_current_line()
 	local cursor_pos = vim.api.nvim_win_get_cursor(0)
-	local current_row = cursor_pos[1] -- 1-indexed row number of cursor
+	local current_row = cursor_pos[1] -- Fix: Extract row correctly from cursor tuple
 
 	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
 	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
@@ -74,8 +74,8 @@ function M.run_request()
 
 	method = method:upper()
 
-	-- Advanced Feature: Parse Headers and Body from lines below the request line
-	local total_lines = vim.api.nvim_buf_count_lines or vim.api.nvim_buf_line_count(0)
+	-- Parse Headers and Body from lines below the request line
+	local total_lines = vim.api.nvim_buf_line_count(0)
 	local headers = {}
 	local body_lines = {}
 	local is_parsing_body = false
@@ -85,22 +85,20 @@ function M.run_request()
 
 	-- Scan consecutive lines underneath the request line
 	for i = current_row + 1, total_lines do
-		local line = vim.api.nvim_buf_get_lines(0, i - 1, i, false)[1]
+		local lines_get = vim.api.nvim_buf_get_lines(0, i - 1, i, false)
+		local line = lines_get[1] or ""
 
-		-- Stop parsing if we hit another request block or block delimiter (like ###)
+		-- Stop parsing if we hit another request block or block delimiter
 		if line:match("^%A+%s+https?://") or line:match("^###") then
 			break
 		end
 
 		if is_parsing_body then
-			-- Collect body lines after the blank line separator
 			table.insert(body_lines, line)
 		else
 			if line == "" then
-				-- Blank line denotes the transition from Headers to Request Body
 				is_parsing_body = true
 			else
-				-- Parse Headers (Format: Key: Value)
 				local h_key, h_val = line:match("^([^:]+):%s*(.*)")
 				if h_key and h_val then
 					headers[vim.trim(h_key)] = vim.trim(h_val)
@@ -112,7 +110,6 @@ function M.run_request()
 	local request_body = nil
 	if #body_lines > 0 then
 		request_body = table.concat(body_lines, "\n")
-		-- Automatically append JSON content type if missing and body looks like JSON
 		if request_body:match("^%s*{") and not headers["Content-Type"] then
 			headers["Content-Type"] = "application/json"
 		end
@@ -138,7 +135,7 @@ function M.run_request()
 		end)
 	end
 
-	-- Route calls into Neovim 0.12 native API parameters
+	-- Route calls strictly into Neovim 0.12 native API parameter expectations
 	local opts = {
 		headers = headers,
 		body = request_body,
@@ -147,6 +144,7 @@ function M.run_request()
 	if method == "GET" then
 		vim.net.request(url, opts, on_response)
 	else
+		-- Explicitly invoke method overloads using proper layout parameters
 		vim.net.request(method, url, opts, on_response)
 	end
 end
