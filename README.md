@@ -1,6 +1,6 @@
 # rest-client.nvim
 
-A lightweight, minimal, and fast HTTP REST client for **Neovim 0.12+** built entirely on top of Neovim's native networking APIs (`vim.net.request`). 
+A lightweight, minimal, and fast HTTP REST client for **Neovim 0.12+** built entirely on top of Neovim's native networking APIs . 
 
 No heavy external curl dependencies or external Lua wrappers required—just clean, native asynchronous requests.
 
