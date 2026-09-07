@@ -1,5 +1,10 @@
 local M = {}
 
+-- Plugin default configuration options
+local default_config = {
+	keymap = "<leader>r", -- Default mapping, can be overridden or set to false
+}
+
 -- Custom safe function to pretty print raw JSON string with correct indentation
 local function pretty_format_json(json_str)
 	local success, decoded = pcall(vim.json.decode, json_str)
@@ -23,9 +28,7 @@ local function display_response(body, status)
 	local bufnr = vim.api.nvim_create_buf(false, true)
 	vim.bo[bufnr].filetype = "json"
 
-	-- FIX: If status is nil from native API, display a friendly successful status string
 	local display_status = status or "200 OK (Inferred)"
-
 	local lines = {
 		"// Status: " .. tostring(display_status),
 		"// ------------------------",
@@ -51,7 +54,7 @@ end
 function M.run_request()
 	local current_line = vim.api.nvim_get_current_line()
 	local cursor_pos = vim.api.nvim_win_get_cursor(0)
-	local current_row = cursor_pos[1] -- Fix: Extract row correctly from cursor tuple
+	local current_row = cursor_pos[1]
 
 	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
 	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
@@ -138,7 +141,7 @@ function M.run_request()
 		end)
 	end
 
-	-- Route calls strictly into Neovim 0.12 native API parameter expectations
+	-- Route calls strictly into Neovim native API parameter expectations
 	local opts = {
 		headers = headers,
 		body = request_body,
@@ -147,8 +150,25 @@ function M.run_request()
 	if method == "GET" then
 		vim.net.request(url, opts, on_response)
 	else
-		-- Explicitly invoke method overloads using proper layout parameters
 		vim.net.request(method, url, opts, on_response)
+	end
+end
+
+-- Setup function exposed to the user for customizations
+function M.setup(user_config)
+	-- Merge user configuration options with defaults safely
+	local config = vim.tbl_deep_extend("force", default_config, user_config or {})
+
+	-- 1. Register the global user command
+	vim.api.nvim_create_user_command("RestRun", function()
+		M.run_request()
+	end, { desc = "Run HTTP Request" })
+
+	-- 2. Bind keymap conditionally if provided
+	if config.keymap then
+		vim.keymap.set("n", config.keymap, function()
+			M.run_request()
+		end, { desc = "Run HTTP Request under cursor" })
 	end
 end
 
