@@ -66,9 +66,7 @@ function M.run_request()
 
 	-- If parsing fails entirely, abort with a clear user error
 	if not method or not url then
-		vim.api.nvim_err_writeln(
-			"Error: Current line is not a valid HTTP request. Example: GET https://api.com or just https://api.com"
-		)
+		vim.api.nvim_err_writeln("Error: Current line is not a valid HTTP request.")
 		return
 	end
 
@@ -76,9 +74,9 @@ function M.run_request()
 
 	print("Sending [" .. method .. "] request to " .. url .. "...")
 
-	-- Execute the native Neovim 0.12 network request async API
-	vim.net.request({
-		url = url,
+	-- FIX: In Neovim 0.12, vim.net.request expects URL as the FIRST argument (string)
+	-- and the options configuration table as the SECOND argument.
+	vim.net.request(url, {
 		method = method,
 		callback = function(err, response)
 			if err then
