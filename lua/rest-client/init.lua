@@ -41,7 +41,6 @@ function M.run_request()
 	local current_line = vim.api.nvim_get_current_line()
 
 	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
-	-- The '%-' escapes the magic minus character in Lua patterns
 	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
 	current_line = current_line:match("^%s*//%s*(.*)") or current_line
 	current_line = current_line:match("^%s*#%s*(.*)") or current_line
@@ -52,7 +51,6 @@ function M.run_request()
 	local method, url
 
 	-- Check if line explicitly specifies a method followed by a space and URL
-	-- Example: GET https://api.com
 	local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
 
 	if potential_method and potential_url then
@@ -74,24 +72,25 @@ function M.run_request()
 
 	print("Sending [" .. method .. "] request to " .. url .. "...")
 
-	-- FIX: In Neovim 0.12, vim.net.request expects URL as the FIRST argument (string)
-	-- and the options configuration table as the SECOND argument.
-	vim.net.request(url, {
-		method = method,
-		callback = function(err, response)
-			if err then
-				vim.schedule(function()
-					vim.api.nvim_err_writeln("Request failed: " .. tostring(err))
-				end)
-				return
-			end
-
-			-- Schedule rendering to safely update UI on Neovim's main loop
+	-- FIX: Correct official Neovim 0.12 signature layout:
+	-- vim.net.request(method, url, opts, on_response)
+	vim.net.request(method, url, {}, function(err, response)
+		if err then
 			vim.schedule(function()
-				display_response(response.body, response.status)
+				vim.api.nvim_err_writeln("Request failed: " .. tostring(err))
 			end)
-		end,
-	})
+			return
+		end
+
+		-- Schedule rendering to safely update UI on Neovim's main loop
+		vim.schedule(function()
+			if response and response.body then
+				display_response(response.body, response.status)
+			else
+				vim.api.nvim_err_writeln("Error: Received an empty response from server.")
+			end
+		end)
+	end)
 end
 
 return M
