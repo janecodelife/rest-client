@@ -7,13 +7,10 @@ local function pretty_format_json(json_str)
 		return json_str
 	end
 
-	-- Use Neovim's robust formatting utility to generate readable output lines
 	local raw_inspect = vim.inspect(decoded)
 	local formatted_lines = {}
 
-	-- Convert the inspect structure into a clean readable view line by line
 	for line in string.gmatch(raw_inspect, "[^\r\n]+") do
-		-- Replace lua table syntax artifacts with clean formatting syntax if needed
 		line = line:gsub("=", ":")
 		table.insert(formatted_lines, line)
 	end
@@ -23,19 +20,14 @@ end
 
 -- Safely render the HTTP response in a new vertical split window
 local function display_response(body, status)
-	-- Create a new unlisted scratch buffer
 	local bufnr = vim.api.nvim_create_buf(false, true)
-
-	-- Set filetype to json to enable syntax highlighting
 	vim.bo[bufnr].filetype = "json"
 
-	-- Prepare initial header metadata lines
 	local lines = {
 		"// Status: " .. tostring(status),
 		"// ------------------------",
 	}
 
-	-- Format JSON output safely via inspect fallback wrapper
 	local formatted = pretty_format_json(body)
 	if type(formatted) == "table" then
 		for _, line in ipairs(formatted) do
@@ -47,48 +39,84 @@ local function display_response(body, status)
 		end
 	end
 
-	-- Populate the buffer with response text
 	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-
-	-- Open a vertical split and attach the response buffer
 	vim.cmd("vsplit")
 	vim.api.nvim_win_set_buf(0, bufnr)
 end
 
 -- Main function triggered by the user to parse and run the request under cursor
 function M.run_request()
-	-- Fetch the string content of the current cursor line
 	local current_line = vim.api.nvim_get_current_line()
+	local cursor_pos = vim.api.nvim_win_get_cursor(0)
+	local current_row = cursor_pos[1] -- 1-indexed row number of cursor
 
 	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
 	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
 	current_line = current_line:match("^%s*//%s*(.*)") or current_line
 	current_line = current_line:match("^%s*#%s*(.*)") or current_line
-
-	-- Trim leading/trailing whitespace using native Neovim utility
 	current_line = vim.trim(current_line)
 
 	local method, url
-
-	-- Check if line explicitly specifies a method followed by a space and URL
 	local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
 
 	if potential_method and potential_url then
 		method = potential_method
 		url = potential_url
 	elseif current_line:match("^https?://%S+") then
-		-- Fallback: If no explicit method is written, default to GET
 		method = "GET"
 		url = current_line:match("^(https?://%S+)")
 	end
 
-	-- If parsing fails entirely, abort with a clear user error
 	if not method or not url then
 		vim.api.nvim_err_writeln("Error: Current line is not a valid HTTP request.")
 		return
 	end
 
 	method = method:upper()
+
+	-- Advanced Feature: Parse Headers and Body from lines below the request line
+	local total_lines = vim.api.nvim_buf_count_lines or vim.api.nvim_buf_line_count(0)
+	local headers = {}
+	local body_lines = {}
+	local is_parsing_body = false
+
+	-- Default common headers
+	headers["User-Agent"] = "Neovim-RestClient/0.12"
+
+	-- Scan consecutive lines underneath the request line
+	for i = current_row + 1, total_lines do
+		local line = vim.api.nvim_buf_get_lines(0, i - 1, i, false)[1]
+
+		-- Stop parsing if we hit another request block or block delimiter (like ###)
+		if line:match("^%A+%s+https?://") or line:match("^###") then
+			break
+		end
+
+		if is_parsing_body then
+			-- Collect body lines after the blank line separator
+			table.insert(body_lines, line)
+		else
+			if line == "" then
+				-- Blank line denotes the transition from Headers to Request Body
+				is_parsing_body = true
+			else
+				-- Parse Headers (Format: Key: Value)
+				local h_key, h_val = line:match("^([^:]+):%s*(.*)")
+				if h_key and h_val then
+					headers[vim.trim(h_key)] = vim.trim(h_val)
+				end
+			end
+		end
+	end
+
+	local request_body = nil
+	if #body_lines > 0 then
+		request_body = table.concat(body_lines, "\n")
+		-- Automatically append JSON content type if missing and body looks like JSON
+		if request_body:match("^%s*{") and not headers["Content-Type"] then
+			headers["Content-Type"] = "application/json"
+		end
+	end
 
 	print("Sending [" .. method .. "] request to " .. url .. "...")
 
@@ -101,7 +129,6 @@ function M.run_request()
 			return
 		end
 
-		-- Schedule rendering to safely update UI on Neovim's main loop
 		vim.schedule(function()
 			if response and response.body then
 				display_response(response.body, response.status)
@@ -111,11 +138,16 @@ function M.run_request()
 		end)
 	end
 
-	-- Route calls based on method signature criteria for Neovim's API
+	-- Route calls into Neovim 0.12 native API parameters
+	local opts = {
+		headers = headers,
+		body = request_body,
+	}
+
 	if method == "GET" then
-		vim.net.request(url, {}, on_response)
+		vim.net.request(url, opts, on_response)
 	else
-		vim.net.request(method, url, {}, on_response)
+		vim.net.request(method, url, opts, on_response)
 	end
 end
 
