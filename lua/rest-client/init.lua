@@ -1,4 +1,4 @@
-local M = {} -- This must be at the very top of the file
+local M = {}
 
 -- Safely render the HTTP response in a new vertical split window
 local function display_response(body, status)
@@ -40,26 +40,31 @@ function M.run_request()
 	-- Fetch the string content of the current cursor line
 	local current_line = vim.api.nvim_get_current_line()
 
-	-- Remove code comments at the beginning of the line (e.g., --, //, #)
-	current_line = current_line:gsub("^%s*%-%-+%s*", "") -- Strips Lua comments '--'
-	current_line = current_line:gsub("^%s*//+%s*", "") -- Strips JS/C comments '//'
-	current_line = current_line:gsub("^%s*#+%s*", "") -- Strips Python/Bash comments '#'
+	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
+	-- The '%-' escapes the magic minus character in Lua patterns
+	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
+	current_line = current_line:match("^%s*//%s*(.*)") or current_line
+	current_line = current_line:match("^%s*#%s*(.*)") or current_line
 
-	-- Trim leading and trailing whitespace from the cleaned line
+	-- Trim leading/trailing whitespace using native Neovim utility
 	current_line = vim.trim(current_line)
 
 	local method, url
 
-	-- Try to match custom format first: METHOD https://url.com
-	method, url = current_line:match("^(%A+)%s+(https?://%S+)")
+	-- Check if line explicitly specifies a method followed by a space and URL
+	-- Example: GET https://api.com
+	local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
 
-	-- Fallback: If no explicit method is found, but it starts with http, default to GET
-	if not method and current_line:match("^https?://%S+") then
+	if potential_method and potential_url then
+		method = potential_method
+		url = potential_url
+	elseif current_line:match("^https?://%S+") then
+		-- Fallback: If no explicit method is written, default to GET
 		method = "GET"
 		url = current_line:match("^(https?://%S+)")
 	end
 
-	-- If still no valid URL is found, trigger an error
+	-- If parsing fails entirely, abort with a clear user error
 	if not method or not url then
 		vim.api.nvim_err_writeln(
 			"Error: Current line is not a valid HTTP request. Example: GET https://api.com or just https://api.com"
@@ -91,4 +96,4 @@ function M.run_request()
 	})
 end
 
-return M -- This must be at the very bottom of the file
+return M
