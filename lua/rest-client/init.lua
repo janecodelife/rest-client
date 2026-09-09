@@ -1,175 +1,84 @@
 local M = {}
 
--- Plugin default configuration options
-local default_config = {
-	keymap = "<leader>r", -- Default mapping, can be overridden or set to false
-}
+-- Function to create a floating window using native Neovim API
+local function show_in_float(title_text, content)
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, content)
 
--- Custom safe function to pretty print raw JSON string with correct indentation
-local function pretty_format_json(json_str)
-	local success, decoded = pcall(vim.json.decode, json_str)
-	if not success then
-		return json_str
-	end
+	-- Calculate dimensions for the floating window
+	local width = math.floor(vim.o.columns * 0.7)
+	local height = math.floor(vim.o.lines * 0.6)
+	local row = math.floor((vim.o.lines - height) / 2)
+	local col = math.floor((vim.o.columns - width) / 2)
 
-	local raw_inspect = vim.inspect(decoded)
-	local formatted_lines = {}
-
-	for line in string.gmatch(raw_inspect, "[^\r\n]+") do
-		line = line:gsub("=", ":")
-		table.insert(formatted_lines, line)
-	end
-
-	return formatted_lines
-end
-
--- Safely render the HTTP response in a new vertical split window
-local function display_response(body, status)
-	local bufnr = vim.api.nvim_create_buf(false, true)
-	vim.bo[bufnr].filetype = "json"
-
-	local display_status = status or "200 OK (Inferred)"
-	local lines = {
-		"// Status: " .. tostring(display_status),
-		"// ------------------------",
+	local opts = {
+		relative = "editor",
+		width = width,
+		height = height,
+		row = row,
+		col = col,
+		style = "minimal",
+		border = "rounded",
+		title = title_text,
+		title_pos = "center",
 	}
 
-	local formatted = pretty_format_json(body)
-	if type(formatted) == "table" then
-		for _, line in ipairs(formatted) do
-			table.insert(lines, line)
-		end
-	else
-		for line in string.gmatch(body, "[^\r\n]+") do
-			table.insert(lines, line)
-		end
-	end
+	-- Open the UI window and apply JSON highlighting
+	local win = vim.api.nvim_open_win(buf, true, opts)
+	vim.bo[buf].filetype = "json"
 
-	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
-	vim.cmd("vsplit")
-	vim.api.nvim_win_set_buf(0, bufnr)
+	-- Allow closing the window quickly by pressing 'q'
+	vim.keymap.set("n", "q", ":close<CR>", { buffer = buf, silent = true, nowait = true })
 end
 
--- Main function triggered by the user to parse and run the request under cursor
-function M.run_request()
-	local current_line = vim.api.nvim_get_current_line()
-	local cursor_pos = vim.api.nvim_win_get_cursor(0)
-	local current_row = cursor_pos[1]
+-- Main execution function to execute the HTTP request from current line
+function M.run_current_line()
+	-- Get text from the current line where the cursor is positioned
+	local line = vim.api.nvim_get_current_line()
 
-	-- Clean up any leading spaces, Lua comments (--), JS comments (//), or Bash comments (#)
-	current_line = current_line:match("^%s*%-%-%s*(.*)") or current_line
-	current_line = current_line:match("^%s*//%s*(.*)") or current_line
-	current_line = current_line:match("^%s*#%s*(.*)") or current_line
-	current_line = vim.trim(current_line)
+	-- Parse Method and URL using Lua pattern matching
+	local method, url = line:match("^([A-Z]+)%s+(https?://[%w%-_%.%?%s%/%%%=%&]+)")
 
-	local method, url
-	local potential_method, potential_url = current_line:match("^([A-Za-z]+)%s+(https?://%S+)")
-
-	if potential_method and potential_url then
-		method = potential_method
-		url = potential_url
-	elseif current_line:match("^https?://%S+") then
+	-- Fallback to GET if only a raw URL is provided without a method prefix
+	if not method or not url then
+		url = line:match("(https?://[%w%-_%.%?%s%/%%%=%&]+)")
 		method = "GET"
-		url = current_line:match("^(https?://%S+)")
 	end
 
-	if not method or not url then
-		vim.api.nvim_err_writeln("Error: Current line is not a valid HTTP request.")
+	if not url then
+		vim.notify("No valid URL found on this line!", vim.log.levels.WARN)
 		return
 	end
 
-	method = method:upper()
+	vim.notify(string.format("[Native] Sending %s to %s...", method, url), vim.log.levels.INFO)
 
-	-- Parse Headers and Body from lines below the request line
-	local total_lines = vim.api.nvim_buf_line_count(0)
-	local headers = {}
-	local body_lines = {}
-	local is_parsing_body = false
-
-	-- Default common headers
-	headers["User-Agent"] = "Neovim-RestClient/0.12"
-
-	-- Scan consecutive lines underneath the request line
-	for i = current_row + 1, total_lines do
-		local lines_get = vim.api.nvim_buf_get_lines(0, i - 1, i, false)
-		local line = lines_get[1] or ""
-
-		-- Stop parsing if we hit another request block or block delimiter
-		if line:match("^%A+%s+https?://") or line:match("^###") then
-			break
-		end
-
-		if is_parsing_body then
-			table.insert(body_lines, line)
-		else
-			if line == "" then
-				is_parsing_body = true
-			else
-				local h_key, h_val = line:match("^([^:]+):%s*(.*)")
-				if h_key and h_val then
-					headers[vim.trim(h_key)] = vim.trim(h_val)
-				end
-			end
-		end
-	end
-
-	local request_body = nil
-	if #body_lines > 0 then
-		request_body = table.concat(body_lines, "\n")
-		if request_body:match("^%s*{") and not headers["Content-Type"] then
-			headers["Content-Type"] = "application/json"
-		end
-	end
-
-	print("Sending [" .. method .. "] request to " .. url .. "...")
-
-	-- Completion callback handler for the network api
-	local on_response = function(err, response)
-		if err then
-			vim.schedule(function()
-				vim.api.nvim_err_writeln("Request failed: " .. tostring(err))
-			end)
-			return
-		end
-
+	-- STRICTLY NATIVE: Utilizing Neovim 0.12 built-in async network request
+	vim.net.request(method, url, {}, function(err, res)
+		-- Schedule the UI update back to the main Neovim thread safely
 		vim.schedule(function()
-			if response and response.body then
-				display_response(response.body, response.status)
-			else
-				vim.api.nvim_err_writeln("Error: Received an empty response from server.")
+			if err then
+				show_in_float(" Network Error ", { "Error details:", vim.inspect(err) })
+				return
 			end
+
+			-- Split raw response body string into lines table for the buffer
+			local lines = vim.split(res.body, "\n")
+			local title = string.format(" HTTP Status: %d ", res.status)
+			show_in_float(title, lines)
 		end)
-	end
-
-	-- Route calls strictly into Neovim native API parameter expectations
-	local opts = {
-		headers = headers,
-		body = request_body,
-	}
-
-	if method == "GET" then
-		vim.net.request(url, opts, on_response)
-	else
-		vim.net.request(method, url, opts, on_response)
-	end
+	end)
 end
 
--- Setup function exposed to the user for customizations
-function M.setup(user_config)
-	-- Merge user configuration options with defaults safely
-	local config = vim.tbl_deep_extend("force", default_config, user_config or {})
+-- The setup function that exposes commands and keymaps to the user's config
+function M.setup(opts)
+	-- Merge user options if any are provided in the future
+	opts = opts or {}
 
-	-- 1. Register the global user command
-	vim.api.nvim_create_user_command("RestRun", function()
-		M.run_request()
-	end, { desc = "Run HTTP Request" })
+	-- Create the user command :HttpRun
+	vim.api.nvim_create_user_command("HttpRun", M.run_current_line, {})
 
-	-- 2. Bind keymap conditionally if provided
-	if config.keymap then
-		vim.keymap.set("n", config.keymap, function()
-			M.run_request()
-		end, { desc = "Run HTTP Request under cursor" })
-	end
+	-- Bind to a default shortcut shortcut (e.g., <leader>hr)
+	vim.keymap.set("n", "<leader>hr", M.run_current_line, { desc = "Run native HTTP request" })
 end
 
 return M
