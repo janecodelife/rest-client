@@ -40,3 +40,22 @@ require("rest-client").setup({
 ## 🚀 How to Use
 
 Place your cursor on any valid URL line inside any file buffer and press your configured shortcut keymap (or run the user command). 
+
+---
+
+## 💝 Support the Project
+
+> *This plugin is built entirely on developer insights gathered over **years of building real-world software** to catch common pain points, combined with **months of dedicated building and rigorous testing** to ensure it operates flawlessly.*
+
+If this utility boosts your everyday speed and eliminates annoying file search clutter, please consider buying me a coffee or supporting my continuous maintenance!
+
+You can tip or donate directly to my **TRON (TRX / USDT-TRC20)** crypto wallet address:
+## ☕☕☕☕ Support Me (Buy Devlopment Labtop ) By Coffee Via USDT ☕☕☕☕
+
+- **Network:** `TRX Tron (TRC20)`
+- **Address:** `TAFFjBP39Z86weL5dDU1A2251VrgPprDUj`
+
+> *Every bit of support fuels the expansion of this ecosystem and helps me write cleaner tools for all of us. Thank you for standing behind independent developers!* 🙏
+
+---
+
