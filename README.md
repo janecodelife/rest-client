@@ -15,10 +15,19 @@ or contact me by
 
 ## ✨ Features
 
-- ⚡ **Zero External Dependencies:** Built strictly using native Neovim 0.12 network functions.
+- ⚡ Run it directly from under the cursor : hover about url and run the keymap <leader>hr.
 - 🔄 **Asynchronous Execution:** Your UI will never freeze or lock while waiting for an API response.
 - 🎛️ **Smart Multiline Block Parsing:** Place your cursor anywhere inside an HTTP instruction block, and the plugin will dynamically find the correct method, headers, and payload.
 - 🎨 **Smart Auto-formatting:** Automatically formats and pretty-prints JSON responses in a vertical split window.
+
+--- 
+
+## 📦 ## Prerequisites ( Temporary )
+
+```bash
+curl
+
+```
 
 ---
 
