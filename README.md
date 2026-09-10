@@ -65,12 +65,12 @@ body: {
 ## Video 📺
 
 <p align="center">
-  <img src="assets/folders-bookmark.gif" alt="folders-bookmark-video" width="100%">
+  <img src="assets/make_http_request_in_blink_without_leaving_buffer.gif" alt="make_http_request_in_blink_without_leaving_buffer-video" width="100%">
 </p>
 
 or in 
 
-- **YouTube**: [https://www.youtube.com/watch?v=ALhjanZ3Yzc](https://www.youtube.com/watch?v=ALhjanZ3Yzc) 
+- **YouTube**: [https://www.youtube.com/watch?v=jBUKpSBhoxI](https://www.youtube.com/watch?v=jBUKpSBhoxI) 
 
 ---
 
