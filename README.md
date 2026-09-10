@@ -4,7 +4,11 @@
 [![Subscribe on YouTube](https://img.shields.io/badge/Subscribe-@JaneCodeLife-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/@JaneCodeLife)
 
 A lightweight, minimal, and fast HTTP requests (GET, POST, PUT, DELETE, etc.) REST client for Neovim 0.12+ built entirely on top of Neovim's native networking APIs . support all kind of files . so run it anywhere , everywhere in a blink
-Support me by the only available way now: USDT to buy a new dev laptop. Info is below, or contact me by 📩 email: janecodelife@gmail.com
+
+--- 
+
+Support me by the only available way now: USDT to buy a new dev laptop. Info is below, 
+or contact me by 📩 email: janecodelife@gmail.com
 
 ---
 
