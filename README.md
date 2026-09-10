@@ -15,7 +15,7 @@ or contact me by
 
 ## ✨ Features
 
-- ⚡ Run it directly from under the cursor : hover about url and run the keymap <leader>hr.
+- ⚡ **Run it directly from under the cursor** hover about url and run the keymap <leader>hr.
 - 🔄 **Asynchronous Execution:** Your UI will never freeze or lock while waiting for an API response.
 - 🎛️ **Smart Multiline Block Parsing:** Place your cursor anywhere inside an HTTP instruction block, and the plugin will dynamically find the correct method, headers, and payload.
 - 🎨 **Smart Auto-formatting:** Automatically formats and pretty-prints JSON responses in a vertical split window.
