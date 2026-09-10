@@ -24,8 +24,6 @@ or contact me by 📩 email: janecodelife@gmail.com
 ## 📥 Installation & Configuration
 
 
-### Using [lazy.nvim](https://github.com)
-
 ```lua
 vim.pack.add({
 	"https://github.com/janecodelife/rest-client.nvim",
