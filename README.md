@@ -1,5 +1,96 @@
 # rest-client.nvim (STEEL UNDER WORKING)
 # NOW SUPPORT (GET REQUEST ONLY)
+
+# rest-client.nvim
+
+A lightweight, asynchronous, and pure Lua REST client plugin for Neovim built on top of `vim.system`. Test your HTTP requests (GET, POST, PUT, DELETE, etc.) directly from your active buffers without leaving Neovim.
+
+## Features
+
+- **No Heavy Dependencies:** Works out of the box using Neovim's modern native `vim.system` execution API (No external Lua HTTP libraries needed).
+- **Asynchronous & Non-Blocking:** Requests run entirely in the background—Neovim will never freeze or hang during slow network transfers.
+- **Smart Multiline Block Parsing:** Place your cursor anywhere inside an HTTP instruction block, and the plugin will dynamically find the correct method, headers, and payload.
+- **Error-Tolerant Feedback:** Unlike standard internal wrappers, server faults (like `401 Unauthorized` or `404 Not Found`) do not fail silently—the plugin splits the accurate raw payload into a standalone scratchpad buffer for debugging.
+- **Human-Centric Layout:** The response view prioritizes the **Formatted Response Body** right at the top for faster code focus, shifting verbose network headers down to a secondary scrollable view.
+
+---
+
+## Installation
+
+### Using [lazy.nvim](https://github.com)
+
+```lua
+{
+  "your-github-username/rest-client.nvim",
+  config = function()
+    require("rest-client").setup({
+      keymap = "<leader>hr" -- Customize your favorite trigger key here
+    })
+  end
+}
+```
+
+### Using Native Vim Packages (`pack/`)
+
+Clone the repository directly inside your packet start loop folder structure:
+
+```bash
+git clone https://github.com ~/.local/share/nvim/site/pack/plugins/start/rest-client.nvim
+```
+
+Then initialize it in your primary `init.lua` config file:
+
+```lua
+require("rest-client").setup({
+  keymap = "<leader>hr" -- Specify your preferred keyboard shortcut
+})
+```
+
+---
+
+## Configuration
+
+You can fully customize the behavior of the plugin by passing options to the `.setup()` module function:
+
+```lua
+require("rest-client").setup({
+  -- The global shortcut string used to trigger requests under the cursor
+  keymap = "<leader>hr", 
+  
+  -- The visual description text used by Neovim's mapping system
+  mapping_desc = "Execute REST client request under cursor",
+})
+```
+
+---
+
+## Usage Guide
+
+Create a test file (e.g., `test.http` or `api.rest`) and format your endpoints sequentially. Put your cursor anywhere inside or directly below the block you want to test and press your configured keymap (default: `<leader>hr`).
+
+### Example File Layout:
+
+```http
+GET https://dummyjson.com
+
+GET https://dummyjson.com
+
+POST https://dummyjson.com
+header: {"Content-Type": "application/json"}
+body: {
+    "username": "emilys",
+    "password": "emilyspass",
+    "expiresInMins": 60
+}
+```
+
+### Scratchpad View Interactivity
+When a request completes successfully, a new vertical split window opens dynamically. Inside the response buffer view:
+- Press `q` or `<Esc>` to quickly close the response window.
+- Syntax highlighting is auto-applied to `json` or `html` data blueprints seamlessly.
+
+---
+
 A lightweight, minimal, and fast HTTP REST client for **Neovim 0.12+** built entirely on top of Neovim's native networking APIs . 
 support all kind of files . so run it anywhere , everywhere in a blink
 
