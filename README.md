@@ -8,7 +8,8 @@ A lightweight, minimal, and fast HTTP requests (GET, POST, PUT, DELETE, etc.) RE
 --- 
 
 Support me by the only available way now: USDT to buy a new dev laptop. Info is below, 
-or contact me by 📩 email: janecodelife@gmail.com
+or contact me by 
+📩 email: janecodelife@gmail.com
 
 ---
 
