@@ -1,6 +1,5 @@
 local M = {}
 
---  (Default Configurations)
 M.config = {
 	keymap = "<leader>hr",
 	mapping_desc = "Execute REST client request under cursor",
@@ -72,7 +71,7 @@ local function display_response(req_info, status_line, response_raw, origin_win)
 	-- table.insert(content_lines, " --- REQUEST / RESPONSE BOUNDARY --- ")
 	-- table.insert(content_lines, "----------------------------------------")
 	-- table.insert(content_lines, "")
-
+	--
 	table.insert(content_lines, "========================================")
 	table.insert(content_lines, " RESPONSE: " .. string.upper(status_line))
 	table.insert(content_lines, "========================================")
@@ -148,9 +147,14 @@ local function parse_http_block()
 	local body_parts = {}
 	local parsing_body = false
 
+	-- Keep track of curly brackets to know exactly where the JSON object ends
+	local open_brackets = 0
+	local close_brackets = 0
+
 	for i = 2, #lines do
 		local line = vim.trim(lines[i] or "")
 
+		-- Stop if we hit a brand new request block header line
 		if line:match("^[A-Z]+%s+https?://") then
 			break
 		end
@@ -158,6 +162,19 @@ local function parse_http_block()
 		if parsing_body then
 			if line ~= "" then
 				table.insert(body_parts, line)
+
+				-- Count brackets on this current body string line
+				for _ in line:gmatch("{") do
+					open_brackets = open_brackets + 1
+				end
+				for _ in line:gmatch("}") do
+					close_brackets = close_brackets + 1
+				end
+
+				-- FIX: If balanced, we have parsed the complete standalone JSON object! Stop right here.
+				if open_brackets > 0 and open_brackets == close_brackets then
+					break
+				end
 			end
 		elseif line:lower():match("^header:%s*") then
 			local json_str = line:gsub("^header:%s*", "")
@@ -172,6 +189,16 @@ local function parse_http_block()
 			local rest = line:gsub("^body:%s*", "")
 			if rest ~= "" then
 				table.insert(body_parts, rest)
+				for _ in rest:gmatch("{") do
+					open_brackets = open_brackets + 1
+				end
+				for _ in rest:gmatch("}") do
+					close_brackets = close_brackets + 1
+				end
+
+				if open_brackets > 0 and open_brackets == close_brackets then
+					break
+				end
 			end
 		end
 	end
@@ -191,7 +218,6 @@ local function parse_http_block()
 	}
 end
 
--- الدالة الأساسية لتنفيذ الطلب (Exported internally)
 function M.run_request()
 	local req, err = parse_http_block()
 	if err or not req then
@@ -233,7 +259,6 @@ function M.run_request()
 	end)
 end
 
--- (Setup function)
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 
