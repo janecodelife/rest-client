@@ -39,7 +39,7 @@ require("rest-client").setup({
 
 ## How To Use
 
-Create a test file (e.g., `test.http` or `api.rest` or `test.txt` or `test.php` or `test.lua`) and format your endpoints sequentially. Put your cursor anywhere inside or directly below the block you want to test and press your configured keymap (default: `<leader>hr`).
+Create a test file (e.g., `test.http` or `api.rest` or `test.txt` or `test.php` or `test.lua` or even `whatever.whatever :D`) and format your endpoints sequentially. Put your cursor anywhere inside or directly below the block you want to test and press your configured keymap (default: `<leader>hr`).
 
 ### Example File Layout:
 
