@@ -45,16 +45,16 @@ Create a test file (e.g., `test.http` or `api.rest` or `test.txt` or `test.php` 
 ### Example File Layout:
 
 ```http
+
 GET https://dummyjson.com/products
 GET https://dummyjson.com/todos
 
 POST https://dummyjson.com/auth/login
 header: {"Content-Type": "application/json"}
 body: {
-    "username": "emilys",
-    "password": "emilyspass",
-    "expiresInMins": 60
+  "username":"emilys","password":"emilyspass","expiresInMins":100
 }
+
 ```
 ---
 
