@@ -22,7 +22,7 @@ or contact me by
 
 --- 
 
-## 📦 ## Prerequisites ( Temporary )
+## 📦 Prerequisites 
 
 ```bash
 curl
